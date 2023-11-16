@@ -1,5 +1,5 @@
-from .agent import *
-from .model import *
+from agent import *
+from model import *
 
 def agent_portrayal(agent):
     portrayal = {}
@@ -9,8 +9,8 @@ def agent_portrayal(agent):
         portrayal["Shape"] = "rect"
         portrayal["Filled"] = "true"
         portrayal["Layer"] = 0
-        portrayal["w"] = 1
-        portrayal["h"] = 1
+        portrayal["w"] = agent.amount/5
+        portrayal["h"] = agent.amount/5
 
     elif type(agent) is Market:
         portrayal["Color"] = "red"
@@ -34,7 +34,7 @@ height = 10
 model_params = {
     "N": mesa.visualization.Slider("Number of Gold agents:",10,10,20,1),
     "M" : mesa.visualization.Slider("Number of Market agents:",1,1,2,1),
-    "O" : mesa.visualization.Slider("Number of Miner agents:",5,5,10,1),
+    "O" : mesa.visualization.Slider("Number of Miner agents:",1,5,10,1),
     "width": width,
     "height": height,
 }
@@ -46,3 +46,5 @@ server = mesa.visualization.ModularServer(Model,
                        "Gold Mine",
                        model_params)
 server.port = 8521 # The default
+
+server.launch(open_browser=False)

@@ -16,8 +16,9 @@ class WalkAgent(Agent):
         # Set start and end nodes
         # The order of x,y in pathfinder is opposite to that of mesa!!!
         start = grid.node(self.pos[1], self.pos[0])
-        end = grid.node(target.pos[1], target.pos[0])
-
+        end = grid.node(target.pos[1], target.pos[0])   
+        start.walkable = True
+        end.walkable = True
         # Find the path
         finder = AStarFinder(diagonal_movement=DiagonalMovement.never)
         path, _ = finder.find_path(start, end, grid)
@@ -45,6 +46,7 @@ class WalkAgent(Agent):
         for target in target_list:
             path = self._find_path(target, grid)
             if len(path) < min_path_length:
+                min_path_length = len(path)
                 cloest_target = target
         return cloest_target
 
