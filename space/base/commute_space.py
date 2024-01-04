@@ -23,11 +23,13 @@ class RoadNetwork:
     _kd_tree: KDTree
     _crs: pyproj.CRS
 
-    def __init__(self, road_file:str, crs: str):
+    def __init__(self, road_file:str, crs: str, orig_crs: str = None):
         self.crs = crs
         road_df = gpd.read_file(road_file)
         lines=road_df["geometry"]
         segmented_lines = gpd.GeoDataFrame(geometry=segmented(lines))
+        if orig_crs:
+            segmented_lines.set_crs(orig_crs, inplace=True)
         if self.crs:
             if segmented_lines.crs:
                 segmented_lines.to_crs(self.crs, inplace=True)

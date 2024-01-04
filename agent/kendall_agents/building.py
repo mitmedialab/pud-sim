@@ -1,10 +1,6 @@
 import mesa_geo as mg
-import numpy as np
-import mesa
-from agent import BDIAgent,Commuter
-from shapely.geometry import Point,MultiPoint,Polygon
-import random
-from collections import Counter
+from shapely.geometry import Polygon
+
 
 class Floor(mg.GeoAgent):
     def __init__(self, unique_id, model, geometry, crs=None, render=True):
@@ -30,21 +26,23 @@ class Building(mg.GeoAgent):
     
     def add_floor(self, category=None, floor=None):
         if floor:
-            self.floors.append(floor)
+            new_floor = floor
+            self.floors.append(new_floor)
         else:
             geometry = self.floors[-1].geometry
             new_floor = Floor(self.model.next_id(), self.model, geometry, render=True)
             new_floor.Category = category
             new_floor.bld = self.bld
-            new_floor.area = self.building.floors[-1].area
+            new_floor.area = self.floors[-1].area
             new_floor.new = True
             new_floor.is_project = True
             self.floors.append(new_floor)
             self.model.space.add_agents([new_floor])
         self.reorganize()
+        return new_floor
     
     def reorganize(self):
-        floors = sorted(self.floors, key=lambda x: self.config.order[x.Category] if x.Category in self.config.order else 3)
+        floors = sorted(self.floors, key=lambda x: self.config.order.index(x.Category) if x.Category in self.config.order else 6)
         for i,floor in enumerate(floors):
             floor.floor = i
             floor.ind = str(self.bld)+"_"+str(floor.floor)

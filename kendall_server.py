@@ -1,12 +1,13 @@
 
 import mesa
-from agent.kendall_agents import *
+from agent.kendall_agents import Floor, Building, Project, Resident
 from model.kendall_model import Kendall
 from shapely.geometry import mapping
 from flask import Flask,jsonify,request
 from flask_cors import CORS
 import os,sys
 import json
+from util import global_config
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(dir_path)
@@ -22,10 +23,10 @@ def get_agent_property(agent):
     if isinstance(agent, Floor):
         properties["category"] = agent.Category
         properties["floor"] = agent.floor
-        properties["ind"] = agent.ind
         properties["new"] = agent.new
-        properties["is_project"] = agent.is_project
-        properties["type"] = "floor"
+        # if agent.is_project:
+        #     for k,v in agent.demand_list.items():
+        #         properties[k] = v
     return properties
 
 def get_geojson(model,properties_method=None):
@@ -47,7 +48,8 @@ def get_geojson(model,properties_method=None):
             if type(agent) == Floor:
                 floor_data["features"].append(data)
         if type(agent) == Resident:
-            path_data.append({"path":agent.my_path,"timestamps":[i for i in range(len(agent.my_path))]})
+            transformed_path = [model.space.transformer.transform(x, y) for x, y in agent.my_path]
+            path_data.append({"path":transformed_path,"timestamps":[i for i in range(len(transformed_path))]})
 
     return jsonify({'floor_data':floor_data,
                     'path_data':path_data,
@@ -65,17 +67,12 @@ def step():
     return get_geojson(model,properties_method=get_agent_property)
 
 @app.route('/reset',methods=['POST','GET'])
-def reset(model_params=model_params):
-    global model
-    model_params_ = model_params
-    if request.method == 'POST':
-        model_params_["init_incentive"] = request.get_json()
-    model = Kendall(**model_params)
+def reset():
     return get_geojson(model,properties_method=get_agent_property)
 
 if __name__ == '__main__':
 
-    model = Kendall(**model_params)
+    model = Kendall(config=global_config)
     print("Model loaded")
     app.run(host='0.0.0.0',debug=True, port=5001, use_reloader=False)
 

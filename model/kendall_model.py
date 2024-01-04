@@ -1,9 +1,9 @@
-import sys,os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# import sys,os
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import mesa
 import mesa_geo as mg
-from agent import *
+from agent.kendall_agents import Floor, Building, Project, Resident
 from tqdm import tqdm
 import numpy as np
 import random
@@ -23,7 +23,7 @@ class Kendall(mesa.Model):
         self.residents = []
 
         #init network
-        self.network = RoadNetwork(road_file=self.config.road_file, crs=self.config.crs)
+        self.network = RoadNetwork(road_file=self.config.road_file, crs=self.config.crs, orig_crs=self.config.orig_crs)
 
         #initialize model
         self.set_space_and_schedule()
@@ -32,12 +32,12 @@ class Kendall(mesa.Model):
         self.init_agents()
 
         #initialize datacollector
-        # self.datacollector = DataCollector(self)
+        self.datacollector = DataCollector(self)
         # self.datacollector.register("incentive", record=True)
         # self.datacollector.register("vote_list", record=False)
         # self.datacollector.register("expenditures", record=False)
         # self.datacollector.register("profits", record=False)
-        # self.datacollector.collect_data()   
+        self.datacollector.collect_data()   
     
     #initialize space and schedule
     def set_space_and_schedule(self):
@@ -59,29 +59,31 @@ class Kendall(mesa.Model):
                 project = Project(self.next_id(), model=self, building= building, 
                                  config= self.config.project_config,render=False)
                 self.projects.append(project)
-                self.schedule.add(project)
-        self.space.add_agents(self.buildings)
-        self.space.add_agents(self.projects) 
 
-        potential_house_ = [x for x in self.floors if "housing" in x.Category.lower()]
-        potential_office_ = [x for x in self.floors if "office" in x.Category.lower()]
-        
         #residents
+        potential_house_ = [x for x in self.floors if x.Category =='Housing']
+        potential_office_ = [x for x in self.floors if x.Category == 'Office' ]
         for j in tqdm(range(self.config.population),"create residents"):
             house = random.choices(potential_house_, weights=[float(x.area) for x in potential_house_], k=10)[0]
             office = random.choices(potential_office_, weights=[float(x.area) for x in potential_office_], k=10)[0]
             resident = Resident(self.next_id(), model=self, geometry=None, config=self.config.resident_config)
             resident.init_agent(house,office)
             self.residents.append(resident)
-            self.schedule.add(resident)
+        for resident in tqdm(self.residents,"get neighbors for each resident"):
             self.space.add_commuter(resident)
-
-        for resident in self.residents:
+            self.schedule.add(resident)
             resident.get_neighbors()
-
+        
+        #add agents to space and schedule
+        self.space.add_agents(self.buildings)
+        self.space.add_agents(self.projects)
+        for project in tqdm(self.projects,"get residents for each projects"):
+            self.schedule.add(project)
+            project.get_residents()
+        
     #load agents from gis files
     def _load_from_file(self, file:str, agent_class:mg.GeoAgent, id_key:str="index"):
-        agentcreator = mg.AgentCreator(agent_class=agent_class, model=self)
+        agentcreator = mg.AgentCreator(agent_class=agent_class, model=self, crs=self.config.crs)
         if file.endswith('.json'):
             agents = agentcreator.from_GeoJSON(open(file).read())
         else:

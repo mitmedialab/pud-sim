@@ -1,41 +1,22 @@
-#model parameters
+#global parameters
+orig_crs : "epsg:4326" #wgs84
 crs : "epsg:3857" #web mercator to use meters as unit
 geo_file: "data/kendall_buildings.json"
 road_file: "data/kendall_roads.shp"
 population: 1000
-project_list :
-    - 643-5
-    - 677-1
-    - 672-5 
-    - 620-74
-    - 668-76
-    - 666-1
-    - 554-1
-    - 708-18
-    - 625-1
-    - 606-2
-    - 620-88
-    - 610-7
-    - 606-1
-    - 668-14
-    - 728-3
-    - 496-1
-
-developer_config:
-  developer_number: 10
+project_list : ['643-5','677-1','672-5','620-74','668-76','666-1','554-1','708-18','625-1','606-2','620-88','610-7','606-1','668-14','728-3','496-1']
+amenity_list: &amenity_list
+  - 'Daycare'
+  - 'Youth_Center'
+  - 'Elder_Facility'
+  - 'Pharmacy'
+  - 'Grocery'
+  - 'Office'
+  - 'Housing'
 
 building_config:
-  height_per_floor: 10
-  order: 
-    daycare : 0
-    phamacy : 1
-    grocery : 2
-    office_lab : 4
-    family_housing : 5
-    workforce_housing : 6
-    early_career_housing : 7
-    executive_housing : 8 
-    senior_housing : 9
+  height_per_floor: 3
+  order: ['Pharmacy','Grocery','Daycare','Youth_Center','Elder_Facility','Office','Other','Housing']
   
 resident_config:
   #base config
@@ -43,97 +24,35 @@ resident_config:
 
   #the ratio of each resident type
   resident_types_ratio:
-    single : 0.4
-    couple : 0.3
-    couple_with_1_child : 0.2 
-    couple_with_2_children: 0.1
+    household_with_child : 6.5
+    household_with_youth: 10.2
+    household_with_elder: 27.7
+    household_with_no_minor_and_elder: 16.6
+    love_alone: 39
+  
+  amenity_list : *amenity_list
 
   #unit sqm/person
-  demand_list: 
-    work_force_housing : 10
-    early_career_housing : 10
-    executive_housing : 10
-    senior_housing: 10
-    office_lab : 6
-    daycare : 1
-    pharmacy : 0.5
-    grocery : 0.2
+  demand_list: [1,2,3,0.2,0.5,6,10]
 
   #demand weight change according to resident type
   demand_weight:
-    single:
-      work_force_housing : 0.4
-      early_career_housing : 0.4
-      executive_housing : 0.4
-      senior_housing: 0.4
-      office_lab : 0.5
-      daycare : 0
-      pharmacy : 0.5
-      grocery : 0.2
-    couple:
-      work_force_housing : 0.4
-      early_career_housing : 0.4
-      executive_housing : 0.4
-      senior_housing: 0.4
-      office_lab : 0.5
-      daycare : 0
-      pharmacy : 0.5
-      grocery : 0.2
-    couple_with_1_child :
-      work_force_housing : 0.4
-      early_career_housing : 0.4
-      executive_housing : 0.4
-      senior_housing: 0.4
-      office_lab : 0.5
-      daycare : 0.6
-      pharmacy : 0.5
-      grocery : 0.2
-    couple_with_2_children :
-      work_force_housing : 0.4
-      early_career_housing : 0.4
-      executive_housing : 0.4
-      senior_housing: 0.4
-      office_lab : 0.2
-      daycare : 0.8
-      pharmacy : 0.5
-      grocery : 0.2
+    household_with_child: [0.5,0.1,0.1,0.1,0.1,0,0.1]
+    household_with_youth: [0.1,0.5,0.1,0.1,0.1,0,0.1]
+    household_with_elder: [0.1,0.1,0.5,0.1,0.1,0,0.1]
+    household_with_no_minor_and_elder: [0.3,0.1,0.1,0.3,0.1,0,0.1]
+    love_alone: [0.1,0.1,0.1,0.3,0.4,0,0]
 
 project_config:
   project_range: 2000
-  # unit $/sqm/month
-  profit_list:
-    work_force_housing : 50
-    early_career_housing : 50
-    executive_housing : 50
-    senior_housing: 50
-    office_lab : 40
-    daycare : 10
-    pharmacy : 20
-    grocery : 30
 
-  # the risk is normally distributed, controlled by mean and std
-  risk_list:
-    work_force_housing : 
-      mean: 0.8
-      std: 0.2
-    early_career_housing : 
-      mean: 0.8
-      std: 0.2
-    executive_housing : 
-      mean: 0.8
-      std: 0.2
-    senior_housing: 
-      mean: 0.8
-      std: 0.2
-    office_lab : 
-      mean: 0.6
-      std: 0.3
-    daycare : 
-      mean: 0.5
-      std: 0.5
-    pharmacy : 
-      mean: 0.5
-      std: 0.5
-    grocery : 
-      mean: 0.5
-      std: 0.5
+  amenity_list : *amenity_list
+
+  # incentive list linear decrease according to the order of demand gap
+  incentive_list: [5,2,1,0.5,0.2,0.2,0.1]
+  # unit $/sqm/month
+  profit_list: [10,10,20,20,30,50,50]
+
+  
+
+
