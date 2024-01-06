@@ -1,1 +1,1 @@
-from schedule.base.ParallelActivation import ParallelActivation
+from schedule.base.ParallelActivation import *

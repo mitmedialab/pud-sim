@@ -1,26 +1,25 @@
-# import sys,os
-# sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import sys,os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import mesa
 import mesa_geo as mg
-from agent.kendall_agents import Floor, Building, Project, Resident
+from agent.kendall_agents import Floor, Building, Project, Resident,Developer   
 from tqdm import tqdm
 import numpy as np
 import random
-from schedule import ParallelActivation
+from schedule import ParallelActivation,ParallelActivationByType
 from space import RoadNetwork,CommuteSpace
 from model import DataCollector
 from itertools import groupby
 from shapely.geometry import Polygon
+from collections import defaultdict
 
 class Kendall(mesa.Model):
     def __init__(self,config):
         super().__init__()
 
         self.config = config
-        self.buildings = [] 
-        self.projects = []
-        self.residents = []
+        self.agents = defaultdict(list)
 
         #init network
         self.network = RoadNetwork(road_file=self.config.road_file, crs=self.config.crs, orig_crs=self.config.orig_crs)
@@ -42,44 +41,57 @@ class Kendall(mesa.Model):
     #initialize space and schedule
     def set_space_and_schedule(self):
         self.space = CommuteSpace(crs=self.config.crs,warn_crs_conversion=False)
-        self.schedule = ParallelActivation(self)
+        self.schedule = ParallelActivationByType(self)
     
     def init_agents(self):
         #floors
-        self.floors = tqdm(self._load_from_file(self.config.geo_file, Floor),"create floors")
+        self.agents[Floor] = self._load_from_file(self.config.geo_file, Floor)
 
         #buildings and projects
         project_list = self.config.project_list
-        buildings_ = groupby(self.floors, lambda x: x.bld)
-        for bld, floors in tqdm(buildings_,"create buildings"):
+        buildings_ = {bld: list(group) for bld, group in groupby(self.agents[Floor], lambda x: x.bld)}
+        for bld, floors in tqdm(buildings_.items(),"create buildings"):
             building = Building(self.next_id(), model=self, floors=list(floors), 
                                 bld = bld, config = self.config.building_config, render=False)
-            self.buildings.append(building)
+            self.agents[Building].append(building)
             if bld in project_list:
                 project = Project(self.next_id(), model=self, building= building, 
                                  config= self.config.project_config,render=False)
-                self.projects.append(project)
-
-        #residents
-        potential_house_ = [x for x in self.floors if x.Category =='Housing']
-        potential_office_ = [x for x in self.floors if x.Category == 'Office' ]
-        for j in tqdm(range(self.config.population),"create residents"):
-            house = random.choices(potential_house_, weights=[float(x.area) for x in potential_house_], k=10)[0]
-            office = random.choices(potential_office_, weights=[float(x.area) for x in potential_office_], k=10)[0]
-            resident = Resident(self.next_id(), model=self, geometry=None, config=self.config.resident_config)
-            resident.init_agent(house,office)
-            self.residents.append(resident)
-        for resident in tqdm(self.residents,"get neighbors for each resident"):
-            self.space.add_commuter(resident)
-            self.schedule.add(resident)
-            resident.get_neighbors()
+                building.project = project
+                self.agents[Project].append(project)
+                self.schedule.add(project)
+        self.space.add_agents(self.agents[Building])
+        self.space.add_agents(self.agents[Project])
         
-        #add agents to space and schedule
-        self.space.add_agents(self.buildings)
-        self.space.add_agents(self.projects)
-        for project in tqdm(self.projects,"get residents for each projects"):
-            self.schedule.add(project)
-            project.get_residents()
+        #create residents
+        population = sum([x.area for x in self.agents[Floor] if x.Category =='Housing'])//self.config.density
+        for j in tqdm(range(population),"create residents"):
+            self.add_resident()
+
+        #create developer
+        for i in tqdm(range(self.config.developer_num),"create developers"):
+            developer = Developer(self.next_id(), model=self)
+            self.agents[Developer].append(developer)
+            self.schedule.add(developer)
+        
+        #get neighbors
+        for building in tqdm(self.agents[Building],"get neighbors"):
+            building.get_neighbors()
+    
+    def get_random_house(self):
+        potential_house = [x for x in self.agents[Floor] if x.Category =='Housing']
+        return random.choice(potential_house)
+    
+    def get_random_office(self):
+        potential_office = [x for x in self.agents[Floor] if x.Category == 'Office' ]
+        return random.choice(potential_office)
+
+    def add_resident(self,house=None,office=None):
+        resident = Resident(self.next_id(), model=self, geometry=None, config=self.config.resident_config,house=house,office=office)
+        self.schedule.add(resident)
+        self.space.add_commuter(resident)
+        self.agents[Resident].append(resident)
+        return resident
         
     #load agents from gis files
     def _load_from_file(self, file:str, agent_class:mg.GeoAgent, id_key:str="index"):
@@ -93,11 +105,15 @@ class Kendall(mesa.Model):
         return agents
     
     def step(self):
-        self.schedule.step()
-        pass
+        self.schedule.step_type(Resident)
+        self.schedule.step_type(Project)
+        self.schedule.step_type(Developer,shuffle=True)
 
 
 if __name__ == "__main__":
     from util import global_config
     model = Kendall(config=global_config)
-    model.step()
+    for i in range(5):
+        print("Step:",model.schedule.steps)
+        model.step()
+    print("done!")
