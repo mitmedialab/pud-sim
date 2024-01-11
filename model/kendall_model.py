@@ -32,10 +32,12 @@ class Kendall(mesa.Model):
 
         #initialize datacollector
         self.datacollector = DataCollector(self)
-        # self.datacollector.register("incentive", record=True)
-        # self.datacollector.register("vote_list", record=False)
-        # self.datacollector.register("expenditures", record=False)
-        # self.datacollector.register("profits", record=False)
+        self.datacollector.register("demand_gap", record=True)
+        self.datacollector.register("demand_weight", record=False)
+        self.datacollector.register("resident_profile", record=False)
+        self.datacollector.register("supply_list", record=True)
+        self.datacollector.register("endowment", record=False)
+        self.datacollector.register("profit", record=False)
         self.datacollector.collect_data()   
     
     #initialize space and schedule
@@ -54,12 +56,14 @@ class Kendall(mesa.Model):
             building = Building(self.next_id(), model=self, floors=list(floors), 
                                 bld = bld, config = self.config.building_config, render=False)
             self.agents[Building].append(building)
+            self.schedule.add(building)
             if bld in project_list:
                 project = Project(self.next_id(), model=self, building= building, 
-                                 config= self.config.project_config,render=False)
+                                 config= self.config.project_config,render=True)
                 building.project = project
                 self.agents[Project].append(project)
                 self.schedule.add(project)
+            building.reorganize()
         self.space.add_agents(self.agents[Building])
         self.space.add_agents(self.agents[Project])
         
@@ -87,12 +91,39 @@ class Kendall(mesa.Model):
         return random.choice(potential_office)
 
     def add_resident(self,house=None,office=None):
-        resident = Resident(self.next_id(), model=self, geometry=None, config=self.config.resident_config,house=house,office=office)
+        resident = Resident(self.next_id(), model=self, geometry=None, 
+                            config=self.config.resident_config,house=house,office=office,render=False)
         self.schedule.add(resident)
         self.space.add_commuter(resident)
         self.agents[Resident].append(resident)
         return resident
+    
+    def collect_data(self):
+        self.demand_gap = defaultdict(int)
+        self.demand_weight = defaultdict(int)
+        self.resident_profile = defaultdict(int)
+        self.supply_list = defaultdict(int)
+        self.profit = defaultdict(int)
+        self.endowment = 0
+
+        for resident in self.agents[Resident]:
+            for key in self.config.amenity_list:
+                self.demand_gap[key] += resident.demand_gap[key]
+                self.demand_weight[key] += resident.demand_weight[key]
+                self.resident_profile[resident.profile] += 1
+        for project in self.agents[Project]:
+            if hasattr(project,"endowment"):
+                self.endowment += project.endowment
+        for developer in self.agents[Developer]:
+            self.profit[developer.unique_id] = developer.profit
         
+        for category in self.config.amenity_list:
+            self.supply_list[category] = 0
+            for floor in self.agents[Floor]:
+                if floor.Category == category:
+                    self.supply_list[category] += floor.area
+            
+
     #load agents from gis files
     def _load_from_file(self, file:str, agent_class:mg.GeoAgent, id_key:str="index"):
         agentcreator = mg.AgentCreator(agent_class=agent_class, model=self, crs=self.config.crs)
@@ -100,20 +131,21 @@ class Kendall(mesa.Model):
             agents = agentcreator.from_GeoJSON(open(file).read())
         else:
             agents = agentcreator.from_file(file, unique_id=id_key)
-        self.space.add_agents(agents)
         self.current_id = len(agents)
         return agents
     
     def step(self):
+        self.schedule.step_type(Building)
         self.schedule.step_type(Resident)
         self.schedule.step_type(Project)
-        self.schedule.step_type(Developer,shuffle=True)
-
+        self.schedule.step_type(Developer)
+        self.datacollector.collect_data()
 
 if __name__ == "__main__":
     from util import global_config
     model = Kendall(config=global_config)
-    for i in range(5):
+    for i in range(2):
         print("Step:",model.schedule.steps)
         model.step()
+        print(model.supply_list)
     print("done!")

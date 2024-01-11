@@ -1,7 +1,8 @@
 from shapely.ops import transform
 import pyproj
-from shapely.geometry import LineString, MultiLineString
+from shapely.geometry import LineString, MultiLineString,Point
 import geopandas as gpd
+import numpy as np
 import yaml
 from munch import Munch 
 
@@ -68,5 +69,19 @@ def parse_config(config_file):
         global_config  = yaml.safe_load(f)
     global_config = Munch.fromDict(global_config)
     return global_config
+
+def point_in_polygon(polygon,random=True):
+        z = polygon.exterior.coords[0][2]
+        if random:
+            minx, miny, maxx, maxy = polygon.bounds
+            offset = min(maxx-minx,maxy-miny)*0.2
+            while True:
+                pnt = Point(np.random.uniform(minx+offset, maxx-offset), np.random.uniform(miny+offset, maxy-offset),z)
+                if polygon.contains(pnt):
+                    break
+        else:
+            pnt = Point(polygon.centroid.x,polygon.centroid.y,z)
+        return pnt
+    
 
 global_config = parse_config("config.yaml")

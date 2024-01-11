@@ -1,9 +1,10 @@
 import mesa_geo as mg
-from shapely.geometry import Polygon
+from shapely.geometry import Polygon,Point
 from collections import defaultdict
 from .resident import Resident
 from .project import Project
 from .floor import Floor
+from util import point_in_polygon
 
 class Building(mg.GeoAgent):
     def __init__(self, unique_id, model, floors, bld, config, crs=None,render=True):
@@ -14,7 +15,7 @@ class Building(mg.GeoAgent):
         self.render = render
         self.config = config
         self.project = None
-        self.reorganize()
+        self.geometry = None
         super().__init__(unique_id, model,self.geometry, crs)
     
     def reorganize(self):
@@ -26,6 +27,8 @@ class Building(mg.GeoAgent):
             floor.geometry = Polygon(shell=_coords)
         self.floors = floors
         self.geometry = self.floors[0].geometry.representative_point()
+        if self.project:
+            self.project.geometry = point_in_polygon(self.floors[-1].geometry,random=False)
         for floor in self.floors:
             floor.building = self
             if self.project:
@@ -60,8 +63,9 @@ class Building(mg.GeoAgent):
         new_floor.building = self
         self.floors.append(new_floor)
         self.neighbor[Floor].append(new_floor)
+        for building in self.neighbor[Building]:
+            building.neighbor[Floor].append(new_floor)
         self.model.agents[Floor].append(new_floor)
-        self.model.space.add_agents([new_floor])
         self.reorganize()
         return new_floor
 

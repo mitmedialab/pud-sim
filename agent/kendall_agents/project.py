@@ -17,8 +17,10 @@ class Project(mg.GeoAgent):
         self.buildable_floors = []
         self.new_floors = defaultdict(list)
         self.building_idx = 0
-        self.status = None
+        self.max_buildable_floors = random.randint(3,10)
+        self.status = 'pending'
         super().__init__(unique_id, model, self.geometry , crs)
+        self.cal_basic_profit()
     
     def cal_basic_profit(self):
         total_area = np.sum([x.area for x in self.building.floors])
@@ -37,45 +39,39 @@ class Project(mg.GeoAgent):
                 self.demand_weight[key] += resident.demand_weight[key]
     
     #calculate incentive for different amenities based on demand gap
-    def cal_incentive(self):
+    def cal_buildable_floors(self):
+        #calculate incentive for different amenities based on demand gap
         self.incentive = {}
-        sorted_demand_weight = sorted(self.demand_weight.keys(), key=lambda k: self.demand_weight[k])
-        for idx, category in enumerate(sorted_demand_weight):
-            self.incentive[category] = self.config.incentive_list[idx]
-
-    #calcaulte expected profit of different amenities
-    def cal_expected_profit(self):
         self.expected_profit = 0
         self.endowment = 0
         self.reward_profit = 0
-        for idx,category in enumerate(self.config.amenity_list):
-            profit = self.config.profit_list[idx]*self.demand_gap[category]
-            reward_profit = self.incentive[category]*self.basic_profit
-            expected_profit = (profit+reward_profit)
-            endowment = self.config.endowment_ratio*expected_profit
-            self.expected_profit += expected_profit-endowment
-            self.endowment += endowment
-            self.reward_profit += reward_profit
-    
-    def cal_buildable_floors(self):
-        for category,area in self.demand_gap.items():
-            for i in range(int(area//self.footprint_area)):
-                self.buildable_floors.append(category)
-        self.buildable_floors = [x for x in self.demand_gap.keys() if self.demand_gap[x]>0]
+        self.buildable_floors = []
+        sorted_demand_weight = sorted(self.demand_weight.keys(), key=lambda k: self.demand_weight[k])
+        floor = 0
+        for idx, category in enumerate(sorted_demand_weight):
+            self.incentive[category] = self.config.incentive_list[idx]
+            #calcaulte expected profit of different amenities
+            if floor < self.max_buildable_floors:
+                for i in range(int(self.demand_gap[category]//self.footprint_area)):
+                    profit = self.config.profit_list[idx]*self.footprint_area
+                    reward_profit = self.incentive[category]*self.basic_profit
+                    expected_profit = (profit+reward_profit)
+                    endowment = self.config.endowment_ratio*expected_profit
+                    self.expected_profit += expected_profit-endowment
+                    self.endowment += endowment
+                    self.reward_profit += reward_profit
+                    self.buildable_floors.append(category)
+                    floor += 1
         reward_area = self.reward_profit//np.max(self.config.profit_list)
         reward_floor = int(reward_area//self.footprint_area)
         for floor in range(reward_floor):
             category = random.choice(['Office','Housing'])
             self.buildable_floors.append(category)
+        # print(self.buildable_floors)
     
     def prepare_to_build(self):
-        if not self.status:
-            self.cal_basic_profit()
-            self.cal_demand_list()
-            self.cal_incentive()
-            self.cal_expected_profit()
-            self.cal_buildable_floors()
-            self.status = 'pending'
+        self.cal_demand_list()
+        self.cal_buildable_floors()
             
     #build floor step by step
     def build(self):
@@ -89,7 +85,7 @@ class Project(mg.GeoAgent):
                 self.status = 'built'
             
     def parallel_step(self):
-        self.prepare_to_build()
+        # self.prepare_to_build()
         pass
 
     def step(self):

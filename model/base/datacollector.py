@@ -11,9 +11,16 @@ class DataCollector:
         
 
     def collect_data(self):
+        if hasattr(self.model, "collect_data"):
+            self.model.collect_data()
+
         for attr in self.data.keys():
-            if self.record[attr]:
-                self.data[attr].append(getattr(self.model, attr))
+            if hasattr(self.model, attr):
+                data = getattr(self.model, attr)
             else:
-                self.data[attr] = getattr(self.model, attr)
+                data = None
+            if self.record[attr]:
+                self.data[attr].append(data)
+            else:
+                self.data[attr] = data
             
