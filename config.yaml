@@ -1,0 +1,60 @@
+#global parameters
+orig_crs : "epsg:4326" #wgs84
+crs : "epsg:3857" #web mercator to use meters as unit
+geo_file: "data/kendall_buildings.json"
+road_file: "data/kendall_roads.shp"
+#density for calculating the number of residents
+#unit person/sqm
+density: 1000
+project_list : ['643-5','677-1','672-5','620-74','668-76','666-1','554-1','708-18','625-1','606-2','620-88','610-7','606-1','668-14','728-3','496-1']
+amenity_list: &amenity_list
+  - 'Daycare'
+  - 'Youth_Center'
+  - 'Elder_Facility'
+  - 'Pharmacy'
+  - 'Grocery'
+  - 'Office'
+  - 'Housing'
+developer_num: 5
+
+building_config:
+  height_per_floor: 3
+  life_circle_radius: 1500
+  order: ['Pharmacy','Grocery','Daycare','Youth_Center','Elder_Facility','Office','Other','Housing']
+  
+resident_config:
+  #the ratio of each resident type
+  resident_types_ratio:
+    household_with_child : 6.5
+    household_with_youth: 10.2
+    household_with_elder: 27.7
+    household_with_no_minor_and_elder: 16.6
+    love_alone: 39
+  
+  amenity_list : *amenity_list
+
+  #unit sqm/person
+  demand_list: [10,20,30,20,50,3,2]
+
+  #demand weight change according to resident type
+  demand_weight:
+    household_with_child: [0.5,0.1,0.1,0.1,0.1,0,0.1]
+    household_with_youth: [0.1,0.5,0.1,0.1,0.1,0,0.1]
+    household_with_elder: [0.1,0.1,0.5,0.1,0.1,0,0.1]
+    household_with_no_minor_and_elder: [0.3,0.1,0.1,0.3,0.1,0,0.1]
+    love_alone: [0.1,0.1,0.1,0.3,0.4,0,0]
+
+project_config:
+
+  amenity_list : *amenity_list
+
+  #endowment ratio of total profit feedback to the society
+  endowment_ratio: 0.01
+  # incentive list linear decrease according to the order of demand gap
+  incentive_list: [0.5,0.3,0.2,0.1,0.05,0.02,0.01]
+  # unit $/sqm
+  profit_list: [10,10,20,20,30,50,50]
+
+  
+
+
