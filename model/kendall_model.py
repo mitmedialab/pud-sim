@@ -21,6 +21,9 @@ class Kendall(mesa.Model):
         self.config = config
         self.agents = defaultdict(list)
 
+        #set global seed
+        self._set_global_seed(self.config.seed)
+
         #init network
         self.network = RoadNetwork(road_file=self.config.road_file, crs=self.config.crs, orig_crs=self.config.orig_crs)
 
@@ -99,29 +102,39 @@ class Kendall(mesa.Model):
         return resident
     
     def collect_data(self):
-        self.demand_gap = defaultdict(int)
-        self.demand_weight = defaultdict(int)
+        self.demand_list = defaultdict(float)
+        self.demand_gap = defaultdict(float)
+        self.demand_weight = defaultdict(float)
         self.resident_profile = defaultdict(int)
-        self.supply_list = defaultdict(int)
+        self.supply_list = defaultdict(float)
         self.profit = defaultdict(int)
         self.endowment = 0
+        num_resident = len(self.agents[Resident])
 
         for resident in self.agents[Resident]:
-            for key in self.config.amenity_list:
-                self.demand_gap[key] += resident.demand_gap[key]
-                self.demand_weight[key] += resident.demand_weight[key]
+            for idx,category in enumerate(self.config.amenity_list):
+                self.demand_weight[category] += resident.demand_weight[category]
+                self.supply_list[category] += resident.supply_list[category]
                 self.resident_profile[resident.profile] += 1
+        
+        for idx,category in enumerate(self.config.amenity_list):
+            self.demand_list[category] = self.config.resident_config.demand_list[idx]*num_resident
+            self.demand_gap[category] = max((self.demand_list[category]-self.supply_list[category]),0)
+
         for project in self.agents[Project]:
             if hasattr(project,"endowment"):
                 self.endowment += project.endowment
         for developer in self.agents[Developer]:
             self.profit[developer.unique_id] = developer.profit
         
-        for category in self.config.amenity_list:
-            self.supply_list[category] = 0
-            for floor in self.agents[Floor]:
-                if floor.Category == category:
-                    self.supply_list[category] += floor.area
+        
+        
+        # print("_____________________________________")
+        # print("demand_list: ",self.demand_list)
+        # print("supply_list: ",self.supply_list)
+        # print("demand_gap: ",self.demand_gap)
+        # print("_____________________________________")
+
             
 
     #load agents from gis files
@@ -133,19 +146,27 @@ class Kendall(mesa.Model):
             agents = agentcreator.from_file(file, unique_id=id_key)
         self.current_id = len(agents)
         return agents
+
+    def _set_global_seed(self, seed):
+        np.random.seed(seed)
+        random.seed(seed)
     
     def step(self):
-        self.schedule.step_type(Building)
+        # self.schedule.step_type(Building)
         self.schedule.step_type(Resident)
         self.schedule.step_type(Project)
         self.schedule.step_type(Developer)
+        self.schedule.step_count()
         self.datacollector.collect_data()
 
 if __name__ == "__main__":
     from util import global_config
     model = Kendall(config=global_config)
-    for i in range(2):
-        print("Step:",model.schedule.steps)
+    num_built_project = 0
+    # for i in range(10):
+    #     model.step()
+    while num_built_project < len(model.agents[Project]):
         model.step()
-        print(model.supply_list)
+        for agent in model.agents[Project]:
+            num_built_project += int(agent.status == 'built')
     print("done!")
