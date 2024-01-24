@@ -55,10 +55,10 @@ class Resident(Commuter, BDIAgent):
         self._prepare_to_move(self.origin,self.destination)
 
     def parallel_step(self):
+        self.cal_supply()
+        self.cal_demand_gap()
         pass
         
     def step(self):
-        self.cal_supply()
-        self.cal_demand_gap()
         pass
         

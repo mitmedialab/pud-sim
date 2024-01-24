@@ -13,6 +13,7 @@ from model import DataCollector
 from itertools import groupby
 from shapely.geometry import Polygon
 from collections import defaultdict
+import pandas as pd
 
 class Kendall(mesa.Model):
     def __init__(self,config):
@@ -107,7 +108,7 @@ class Kendall(mesa.Model):
         self.demand_weight = defaultdict(float)
         self.resident_profile = defaultdict(int)
         self.supply_list = defaultdict(float)
-        self.profit = defaultdict(int)
+        self.profit = 0
         self.endowment = 0
         num_resident = len(self.agents[Resident])
 
@@ -122,20 +123,10 @@ class Kendall(mesa.Model):
             self.demand_gap[category] = max((self.demand_list[category]-self.supply_list[category]),0)
 
         for project in self.agents[Project]:
-            if hasattr(project,"endowment"):
-                self.endowment += project.endowment
-        for developer in self.agents[Developer]:
-            self.profit[developer.unique_id] = developer.profit
-        
-        
-        
-        # print("_____________________________________")
-        # print("demand_list: ",self.demand_list)
-        # print("supply_list: ",self.supply_list)
-        # print("demand_gap: ",self.demand_gap)
-        # print("_____________________________________")
-
-            
+            if hasattr(project,"profit"):
+                self.profit += project.profit
+        self.endowment = self.profit*self.config.project_config.endowment_ratio/num_resident
+   
 
     #load agents from gis files
     def _load_from_file(self, file:str, agent_class:mg.GeoAgent, id_key:str="index"):
@@ -162,11 +153,9 @@ class Kendall(mesa.Model):
 if __name__ == "__main__":
     from util import global_config
     model = Kendall(config=global_config)
+    # model.step()
     num_built_project = 0
-    # for i in range(10):
-    #     model.step()
     while num_built_project < len(model.agents[Project]):
         model.step()
-        for agent in model.agents[Project]:
-            num_built_project += int(agent.status == 'built')
+        num_built_project = len([x for x in model.agents[Project] if x.status == 'built'])
     print("done!")

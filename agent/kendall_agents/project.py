@@ -15,11 +15,13 @@ class Project(mg.GeoAgent):
         self.geometry = building.geometry
         self.footprint_area = self.building.floors[0].area
         self.render = render 
-        self.buildable_floors = []
         self.building_plan = defaultdict(int)
         self.new_floors = defaultdict(list)
-        self.building_idx = 0
-        self.max_profit = config.max_buildable_floors*np.max(config.profit_list)*self.footprint_area
+        self.max_profit_per_floor = np.max(config.profit_list)*self.footprint_area
+        self.max_profit = config.max_buildable_floors*self.max_profit_per_floor
+        self.profit = 0
+        self.reward_profit = 0
+        self.endowment = 0
         self.status = 'pending'
         super().__init__(unique_id, model, self.geometry , crs)
 
@@ -27,56 +29,40 @@ class Project(mg.GeoAgent):
     def cal_demand_list(self):
         self.demand_gap = defaultdict(int)
         self.demand_weight = defaultdict(float)
-        num_resident = len(self.building.neighbor[Resident])
+        self.num_resident = len(self.building.neighbor[Resident])
         for resident in self.building.neighbor[Resident]:
             for key in self.config.amenity_list:
                 self.demand_gap[key] += resident.demand_gap[key]
-                self.demand_weight[key] += resident.demand_weight[key]/num_resident
+                self.demand_weight[key] += resident.demand_weight[key]/(self.num_resident+1)
 
     #calculate incentive for different amenities based on demand gap
     def cal_buildable_floors(self):
         #calculate incentive for different amenities based on demand gap
         self.incentive = defaultdict(float)
         self.expected_profit = defaultdict(float)
-        self.profit = 0
-        self.endowment = 0
-        self.reward_floor = 0
-        self.reward_profit = 0
-        self.buildable_floors = []
+        self.buildable_floor = None
 
-        max_profit = np.max(self.config.profit_list)    
+        mean_profit = np.mean(self.config.profit_list)    
 
-        #expected profit = profit + incentive*mean_profit
+        #expected profit = profit + incentive*max_profit
         for idx, category in enumerate(self.config.amenity_list):
-            self.incentive[category] = self.config.incentive_ratio*self.demand_weight[category]
-            profit = self.config.profit_list[idx]
-            reward_profit = self.incentive[category]*max_profit
-            self.expected_profit[category] = profit + reward_profit
+            if self.demand_gap[category] > 0:
+                self.incentive[category] = self.config.incentive_ratio*self.demand_weight[category]
+                profit = self.config.profit_list[idx]*self.footprint_area
+                reward_profit = self.incentive[category]*mean_profit*self.footprint_area
+                self.expected_profit[category] = {"profit":profit,"reward_profit":reward_profit,"total":profit+reward_profit}
         
         #rank exptected profit and choose the category with highest profit first
-        ranked_profit_list = sorted(self.expected_profit.keys(), key=lambda x: self.expected_profit[x] , reverse=True)
-        for category in ranked_profit_list:
-            for i in range(math.ceil(self.demand_gap[category]/self.footprint_area)):
-                if self.profit < self.max_profit:
-                    idx = self.config.amenity_list.index(category)
-                    profit = self.config.profit_list[idx]*self.footprint_area
-                    reward_profit = self.incentive[category]*max_profit*self.footprint_area
-                    self.reward_profit += reward_profit
-                    self.profit += (profit+reward_profit)
-                    #add demand floor
-                    self.buildable_floors.append(category)
+        ranked_profit_list = sorted(self.expected_profit.keys(), key=lambda x: self.expected_profit[x]["total"], reverse=True)
+        if len(ranked_profit_list):
+            category = ranked_profit_list[0]
+            #calculate reward_profit
+            expexted_profit = self.expected_profit[category]["profit"]
+            expected_reward_profit = self.expected_profit[category]["reward_profit"]
+            if (self.profit + expexted_profit + expected_reward_profit) < self.max_profit:
+                self.buildable_floor = category
+                
         
-        reward_area = self.reward_profit/max_profit
-        reward_floor = math.ceil(reward_area/self.footprint_area)
-        for j in range(reward_floor):
-            # add reward floor
-            category = random.choice(["Office","Housing"])
-            self.buildable_floors.append(category)
-        
-        # calculate the endowment and final profit
-        self.endowment = self.profit*self.config.endowment_ratio
-        self.profit = self.profit - self.endowment
-    
     def prepare_to_build(self):
         self.cal_demand_list()
         self.cal_buildable_floors()
@@ -84,20 +70,35 @@ class Project(mg.GeoAgent):
     #build floor step by step
     def build(self):
         if self.status == 'building':
-            if len(self.buildable_floors):
-                category = self.buildable_floors[0]
+            if self.buildable_floor:
+                category = self.buildable_floor
                 self.building_plan[category] += 1
-                floor = self.building.add_floor(category=category)
-                self.new_floors[category].append(floor)
-                # self.building_idx += 1
+                self.building.add_floor(category=category)
+                self.profit += self.expected_profit[category]["total"]
+                self.reward_profit += self.expected_profit[category]["reward_profit"]
+                self.endowment += self.expected_profit[category]["profit"]*self.config.endowment_ratio/self.num_resident
+                #build reward floor
+                if self.reward_profit >= self.max_profit_per_floor:
+                    category = random.choice(["Office","Housing"])
+                    self.building_plan[category] += 1
+                    self.building.add_floor(category=category)
+                    self.reward_profit -= self.max_profit_per_floor
             else:
                 self.status = 'built'
-            
+        
+        # print("_____________________________________")
+        # print("project:",self.unique_id)
+        # print("status:",self.status)
+        # print("category to build:",self.buildable_floor)
+        # print("profit:",self.profit)
+        # print("max_profit:",self.max_profit)
+        # print("_____________________________________")
+
     def parallel_step(self):
-        # self.prepare_to_build()
+        self.prepare_to_build()
         pass
 
     def step(self):
-        self.prepare_to_build()
+        # self.prepare_to_build()
         self.build()
         pass
