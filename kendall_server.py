@@ -6,7 +6,7 @@ from shapely.geometry import mapping
 from flask import Flask,jsonify,request
 from flask_cors import CORS
 import os,sys
-import json
+from munch import Munch
 from util import global_config
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
@@ -27,6 +27,7 @@ def get_agent_property(agent):
         properties["area"] = agent.area
         properties["bld"] = agent.bld
     if isinstance(agent, Project):
+        properties["unique_id"] = agent.unique_id
         properties["status"] = agent.status
         if hasattr(agent,"round"):
             properties["develop_round"] = agent.round
@@ -84,6 +85,7 @@ def get_geojson(model,geometry_method=get_agent_geometry,properties_method=get_a
                     'project_data':project_data,
                     'path_data':path_data,
                     'collected_data':model.datacollector.data,
+                    'config_data': model.config,
                     'stop':stop,
                     })
 
@@ -100,14 +102,17 @@ def step():
 @app.route('/reset',methods=['POST','GET'])
 def reset():
     global model
-    model = Kendall(config=global_config)
-    model.step()
+    if request.method == 'POST':
+        config = request.json
+        config = Munch.fromDict(config)
+        model = Kendall(config=config)
+    else:
+        model = Kendall(config=global_config)
+        model.step()
     return get_geojson(model)
 
 if __name__ == '__main__':
-
     model = Kendall(config=global_config)
-    model.step()
     print("Model loaded")
     app.run(host='0.0.0.0',debug=True, port=5001, use_reloader=False)
 
