@@ -35,7 +35,7 @@ resident_config:
   amenity_list : *amenity_list
 
   #unit sqm/household
-  demand_list: [100,200,300,200,50,30,20]
+  demand_list: [250,500,750,600,120,50,50]
 
   #demand weight change according to resident type
   demand_weight:
@@ -46,12 +46,12 @@ resident_config:
     love_alone: [0.1,0.1,0.1,0.3,0.4,0,0]
 
 project_config:
-  max_buildable_floors: 3
+  max_buildable_floors: 10
   amenity_list : *amenity_list
   #endowment ratio of total profit feedback to the society
   endowment_ratio: 0.01
   # convert normalized demand weight to incentive
-  incentive_ratio: 1
+  incentive_ratio: 3
   # unit $/sqm
   profit_list: [10,10,20,20,30,50,50]
 

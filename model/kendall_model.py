@@ -13,6 +13,7 @@ from model import DataCollector
 from itertools import groupby
 from shapely.geometry import Polygon
 from collections import defaultdict
+import pandas as pd
 
 class Kendall(mesa.Model):
     def __init__(self,config):
@@ -126,16 +127,7 @@ class Kendall(mesa.Model):
                 self.endowment += project.endowment
         for developer in self.agents[Developer]:
             self.profit[developer.unique_id] = developer.profit
-        
-        
-        
-        # print("_____________________________________")
-        # print("demand_list: ",self.demand_list)
-        # print("supply_list: ",self.supply_list)
-        # print("demand_gap: ",self.demand_gap)
-        # print("_____________________________________")
-
-            
+   
 
     #load agents from gis files
     def _load_from_file(self, file:str, agent_class:mg.GeoAgent, id_key:str="index"):
@@ -162,11 +154,9 @@ class Kendall(mesa.Model):
 if __name__ == "__main__":
     from util import global_config
     model = Kendall(config=global_config)
+    # model.step()
     num_built_project = 0
-    # for i in range(10):
-    #     model.step()
     while num_built_project < len(model.agents[Project]):
         model.step()
-        for agent in model.agents[Project]:
-            num_built_project += int(agent.status == 'built')
+        num_built_project = len([x for x in model.agents[Project] if x.status == 'built'])
     print("done!")
