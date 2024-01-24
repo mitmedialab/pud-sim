@@ -15,6 +15,7 @@ sys.path.append(dir_path)
 app = Flask(__name__)
 CORS(app)
 
+
 model = None
 
 #Agent Style
@@ -29,9 +30,11 @@ def get_agent_property(agent):
         properties["status"] = agent.status
         if hasattr(agent,"round"):
             properties["develop_round"] = agent.round
-        if hasattr(agent,"expected_profit"):
-            properties["expected_profit"] = agent.expected_profit
+        if hasattr(agent,"profit"):
+            properties["profit"] = agent.profit
             properties["endowment"] = agent.endowment
+        if hasattr(agent,"building_plan"):
+            properties["building_plan"] = agent.building_plan
         if hasattr(agent,"demand_gap"):
             properties["demand_gap"] = agent.demand_gap
     return properties
@@ -59,6 +62,8 @@ def get_geojson(model,geometry_method=get_agent_geometry,properties_method=get_a
                 }
         floor_data["features"].append(data)
     
+    num_built_project = 0
+    stop = False
     for agent in model.agents[Project]:
         properties = properties_method(agent)
         geometry = geometry_method(agent)
@@ -66,6 +71,10 @@ def get_geojson(model,geometry_method=get_agent_geometry,properties_method=get_a
             "coordinates":geometry["coordinates"],
             "properties": properties,
         })
+        num_built_project += int(agent.status == 'built')
+    
+    if num_built_project == len(model.agents[Project]):
+        stop = True
     
     for agent in model.agents[Resident]:
         transformed_path = [model.space.transformer.transform(x, y) for x, y in agent.my_path]
@@ -75,6 +84,7 @@ def get_geojson(model,geometry_method=get_agent_geometry,properties_method=get_a
                     'project_data':project_data,
                     'path_data':path_data,
                     'collected_data':model.datacollector.data,
+                    'stop':stop,
                     })
 
 @app.route('/init')

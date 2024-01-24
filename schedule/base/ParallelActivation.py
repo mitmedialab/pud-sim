@@ -51,5 +51,7 @@ class ParallelActivationByType(RandomActivationByType):
         agent_keys: list[int] = list(self.agents_by_type[type_class].keys())
         self.parallel_do_each('parallel_step',agent_keys=agent_keys,shuffle=shuffle)
         self.do_each('step',agent_keys=agent_keys,shuffle=shuffle)
+    
+    def step_count(self):
         self.steps += 1
         self.time += 1

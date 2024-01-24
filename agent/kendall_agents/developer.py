@@ -12,15 +12,15 @@ class Developer(Agent):
         if not self.project:
             project_list = [x for x in self.model.agents[Project] if x.status == 'pending']
             if len(project_list):
-                for project in project_list:
-                    project.prepare_to_build()
-                project_list = sorted(project_list, key=lambda x: x.expected_profit, reverse=True)
+                # for project in project_list:
+                #     project.prepare_to_build()
+                project_list = sorted(project_list, key=lambda x: x.profit, reverse=True)
                 self.project = project_list[0]
                 self.project.round = self.round
                 self.project.status = 'building'
                 self.round += 1
         elif self.project.status == 'built':
-            self.profit += self.project.expected_profit
+            self.profit += self.project.profit
             self.project = None
             
     def parallel_step(self):
